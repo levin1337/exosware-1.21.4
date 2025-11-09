@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.ShaderProgramKey;
 import net.minecraft.client.gl.ShaderProgramKeys;
+import net.minecraft.client.particle.Particle;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.network.packet.s2c.play.WorldTimeUpdateS2CPacket;
@@ -61,11 +62,8 @@ public class World extends Function {
             "Дальность тумана", 200, 0, 500, 1, fog::get
     );
 
-    private final BooleanSetting cubes = new BooleanSetting("Летающие кубы", false);
-    private final List<Particle> particles = new ArrayList<>();
-
     public World() {
-        addSettings(timeBox, timeMode, customTime, weatherBox, weatherMode, fog, fogEnd, cubes);
+        addSettings(timeBox, timeMode, customTime, weatherBox, weatherMode, fog, fogEnd);
     }
 
     @Override
@@ -98,22 +96,6 @@ public class World extends Function {
                     }
                 }
             }
-
-            if (cubes.get() && mc.player != null) {
-                particles.removeIf(p -> p.alpha == 0.0f && p.timer.hasTimeElapsed(p.liveTicks));
-                for (Particle p : particles) p.tick();
-
-                if (particles.size() < 100) {
-                    particles.add(new Particle(
-                            mc.player.getPos().add(MathUtil.random(-20.0, 20.0), MathUtil.random(0.0, 5.0), MathUtil.random(-20.0, 20.0)),
-                            Vec3d.ZERO,
-                            new Vec3d(MathUtil.random(-1.0, 1.0), MathUtil.random(0.0, 2.0), MathUtil.random(-1.0, 1.0)),
-                            new Vec3d(MathUtil.random(-1.0, 1.0), MathUtil.random(-1.0, 1.0), MathUtil.random(-1.0, 1.0)),
-                            (long) MathUtil.random(1500.0, 4500.0),
-                            MathUtil.random(0.1f, 0.3f)
-                    ));
-                }
-            }
         }
 
         if (event instanceof EventFog fogEvent && fog.get()) {
@@ -127,88 +109,6 @@ public class World extends Function {
             fogEvent.shape = FogShape.SPHERE;
             fogEvent.modified = true;
         }
-
-        if (event instanceof EventRender3D ms && cubes.get()) {
-            Camera camera = mc.gameRenderer.getCamera();
-            Vec3d cameraPos = camera.getPos();
-
-            ms.getMatrixStack().push();
-            RenderUtil.enableRender(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
-            RenderSystem.enableDepthTest();
-            RenderSystem.disableCull();
-            RenderSystem.depthMask(false);
-            RenderSystem.setShaderTexture(0, ResourceProvider.firefly);
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_TEX_COLOR);
-            BufferBuilder builder = RenderSystem.renderThreadTesselator().begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE_COLOR);
-
-            for (Particle particle : this.particles) {
-                Vec3d pos = VectorUtil.getInterpolatedPos(particle.prev, particle.pos, ms.getDeltatick().getTickDelta(true));
-                float size = 4.0f * particle.size;
-                ms.getMatrixStack().push();
-                ms.getMatrixStack().translate(pos.subtract(cameraPos));
-                ms.getMatrixStack().multiply(camera.getRotation());
-
-                int color = ColorUtil.applyAlpha(ColorUtil.getColorStyle(360), particle.alpha * 0.4f);
-                drawImage(ms.getMatrixStack(), builder, -size / 2f, -size / 2f, 0, size, size, color);
-
-                ms.getMatrixStack().pop();
-            }
-
-            RenderUtil.render3D.endBuilding(builder);
-            RenderSystem.depthMask(true);
-            RenderUtil.disableRender();
-            ms.getMatrixStack().pop();
-
-            RenderUtil.enableRender(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
-            RenderSystem.enableDepthTest();
-            RenderSystem.disableCull();
-            RenderSystem.depthMask(false);
-            RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
-            BufferBuilder linesBuffer = RenderSystem.renderThreadTesselator().begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
-
-            for (Iterator<Particle> it = particles.iterator(); it.hasNext();) {
-                Particle particle = it.next();
-                particle.tick();
-                if (particle.isDead()) {
-                    it.remove();
-                    continue;
-                }
-
-                Vec3d pos = VectorUtil.getInterpolatedPos(particle.prev, particle.pos, ms.getDeltatick().getTickDelta(true));
-                Vec3d rot = VectorUtil.getInterpolatedPos(particle.prevRot, particle.rotate, ms.getDeltatick().getTickDelta(true));
-
-                ms.getMatrixStack().push();
-                ms.getMatrixStack().translate(pos.add(-cameraPos.getX(), -cameraPos.getY(), -cameraPos.getZ()));
-                ms.getMatrixStack().multiply(new Quaternionf().rotationXYZ((float)rot.x, (float)rot.y, (float)rot.z));
-                ms.getMatrixStack().scale(particle.size + 0.1F, particle.size + 0.1F, particle.size + 0.1F);
-
-                int mainColor = ColorUtil.applyAlpha(ColorUtil.getColorStyle(360), particle.alpha * 0.4f);
-                int outlineColor = ColorUtil.applyAlpha(ColorUtil.getColorStyle(360), particle.alpha);
-                GL11.glEnable(GL11.GL_POLYGON_SMOOTH);
-
-                renderBoxInternalDiagonals(ms.getMatrixStack(), linesBuffer, new Box(-0.5, -0.5, -0.5, 0.5, 0.5, 0.5), mainColor);
-                renderOutlinedBox(ms.getMatrixStack(), linesBuffer, new Box(-0.5, -0.5, -0.5, 0.5, 0.5, 0.5), outlineColor);
-
-                GL11.glDisable(GL11.GL_POLYGON_SMOOTH);
-                ms.getMatrixStack().pop();
-            }
-            RenderUtil.render3D.endBuilding(linesBuffer);
-            RenderSystem.depthMask(true);
-            RenderSystem.defaultBlendFunc();
-            RenderUtil.disableRender();
-        }
-    }
-
-    private void drawImage(MatrixStack matrices, BufferBuilder builder, double x, double y, double z, double width, double height, int color) {
-        var matrix = matrices.peek().getPositionMatrix();
-        float r = ColorUtil.getRed(color) / 255f;
-        float g = ColorUtil.getGreen(color) / 255f;
-        float b = ColorUtil.getBlue(color) / 255f;
-        float a = ColorUtil.getAlpha(color) / 255f;
-        builder.vertex(matrix, (float)x, (float)(y + height), (float)z).texture(0f, 1f).color(r, g, b, a);
-        builder.vertex(matrix, (float)(x + width), (float)(y + height), (float)z).texture(1f, 1f).color(r, g, b, a);
-        builder.vertex(matrix, (float)(x + width), (float)y, (float)z).texture(1f, 0f).color(r, g, b, a);
-        builder.vertex(matrix, (float)x, (float)y, (float)z).texture(0f, 0f).color(r, g, b, a);
     }
 
     private long resolveTime() {
@@ -220,75 +120,5 @@ public class World extends Function {
             case "Кастомное" -> (long) customTime.get().floatValue();
             default -> 6000L;
         };
-    }
-
-    private static void renderBoxInternalDiagonals(MatrixStack matrices, BufferBuilder buf, Box box, int color) {
-        float r = ColorUtil.getRed(color) / 255F;
-        float g = ColorUtil.getGreen(color) / 255F;
-        float b = ColorUtil.getBlue(color) / 255F;
-        float a = ColorUtil.getAlpha(color) / 255F;
-        var matrix = matrices.peek().getPositionMatrix();
-        buf.vertex(matrix, (float) box.minX, (float) box.minY, (float) box.minZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.maxX, (float) box.maxY, (float) box.maxZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.maxX, (float) box.minY, (float) box.minZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.minX, (float) box.maxY, (float) box.maxZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.minX, (float) box.minY, (float) box.maxZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.maxX, (float) box.maxY, (float) box.minZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.maxX, (float) box.minY, (float) box.maxZ).color(r, g, b, a);
-        buf.vertex(matrix, (float) box.minX, (float) box.maxY, (float) box.minZ).color(r, g, b, a);
-    }
-
-    private static void renderOutlinedBox(MatrixStack matrices, BufferBuilder buffer, Box box, int color) {
-        float r = ColorUtil.getRed(color) / 255F;
-        float g = ColorUtil.getGreen(color) / 255F;
-        float b = ColorUtil.getBlue(color) / 255F;
-        float a = ColorUtil.getAlpha(color) / 255F;
-        var matrix = matrices.peek().getPositionMatrix();
-        buffer.vertex(matrix, (float) box.minX, (float) box.minY, (float) box.minZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.maxX, (float) box.minY, (float) box.minZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.maxX, (float) box.minY, (float) box.maxZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.minX, (float) box.minY, (float) box.maxZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.minX, (float) box.maxY, (float) box.minZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.maxX, (float) box.maxY, (float) box.minZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.maxX, (float) box.maxY, (float) box.maxZ).color(r, g, b, a);
-        buffer.vertex(matrix, (float) box.minX, (float) box.maxY, (float) box.maxZ).color(r, g, b, a);
-    }
-
-    static class Particle {
-        Vec3d prev, prevRot, pos, rotate, motion, rotateMotion;
-        final long liveTicks;
-        float size;
-        final TimerUtil timer = new TimerUtil();
-        float alpha = 0f;
-        public Particle(Vec3d pos, Vec3d rotate, Vec3d motion, Vec3d rotateMotion, long liveTicks, float size) {
-            this.pos = pos;
-            this.rotate = rotate;
-            this.motion = motion.multiply(0.04);
-            this.rotateMotion = rotateMotion.multiply(0.04);
-            this.liveTicks = liveTicks;
-            this.size = size;
-            this.prevRot = rotate;
-            this.prev = pos;
-            this.timer.reset();
-        }
-        void tick() {
-            this.prev = this.pos;
-            this.prevRot = this.rotate;
-            this.pos = this.pos.add(this.motion);
-            this.rotate = this.rotate.add(this.rotateMotion);
-            this.motion = this.motion.multiply(0.98);
-            this.rotateMotion = this.rotateMotion.multiply(0.98);
-            float lifeProgress = Math.min(timer.getTime() / (float) liveTicks, 1f);
-            if (lifeProgress < 0.1f) {
-                alpha = lifeProgress * 10f;
-            } else if (lifeProgress > 0.9f) {
-                alpha = (1f - lifeProgress) * 10f;
-            } else {
-                alpha = 1f;
-            }
-        }
-        boolean isDead() {
-            return timer.hasTimeElapsed(liveTicks);
-        }
     }
 }
