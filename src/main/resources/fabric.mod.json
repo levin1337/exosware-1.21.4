@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"id": "exosware",
+	"version": "${version}",
+	"name": "Minecraft",
+	"description": "Основная игра!",
+	"authors": [
+		"levin1337",
+		"SxdPandora",
+		"Nikita / DarkSide"
+	],
+	"contact": {
+		"homepage": "https://exosware.ru/",
+		"sources": "https://t.me/exosware"
+	},
+	"license": "Minecraft EULA",
+	"icon": "assets/exosware/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"ru.levin.ExosWare"
+		]
+	},
+	"mixins": [
+		"exosware.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.16.14",
+		"minecraft": "~1.21.4",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}

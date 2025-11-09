@@ -1,0 +1,14 @@
+{
+  "vertex": "exosware:core/glass",
+  "fragment": "exosware:core/glass",
+  "samplers": [
+    { "name": "Sampler0" }
+  ],
+  "uniforms": [
+    { "name": "Resolution", "type": "float", "count": 2, "values": [1920.0, 1080.0] },
+    { "name": "blurAmount", "type": "float", "count": 1, "values": [1.0] },
+    { "name": "reflect", "type": "float", "count": 1, "values": [1.0] },
+    { "name": "noiseValue", "type": "float", "count": 1, "values": [0.3] },
+    { "name": "Viewport", "type": "float", "count": 4, "values": [0.0, 0.0, 1920.0, 1080.0] }
+  ]
+}
