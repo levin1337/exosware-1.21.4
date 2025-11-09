@@ -155,10 +155,7 @@ public class AttackAura extends Function {
 
             handleAttackAndRotation(target);
         }
-       // if (event instanceof EventUpdate motion) {
-       //     mc.player.setYaw(Manager.ROTATION.getYaw());
-       //     mc.player.setPitch(Manager.ROTATION.getPitch());
-       // }
+
         if (event instanceof EventMotion motion) {
             motion.setYaw(Manager.ROTATION.getYaw());
             motion.setPitch(Manager.ROTATION.getPitch());
@@ -274,7 +271,6 @@ public class AttackAura extends Function {
                 float centerYaw = mc.player.getYaw();
                 float centerPitch = mc.player.getPitch();
 
-                // тело
                 {
                     prevBodyYaw = bodyYaw;
                     prevBodyPitch = bodyPitch;
@@ -289,7 +285,6 @@ public class AttackAura extends Function {
                     bodyPitch = MathHelper.clamp(bodyPitch + pitchStep, -90f, 90f);
                 }
 
-                // голова
                 {
                     prevHeadYaw = headYaw;
                     prevHeadPitch = headPitch;

@@ -128,7 +128,7 @@ public class ClientManager implements IMinecraft {
         if (message == null || message.isEmpty()) return "";
 
         final int length = message.length();
-        final StringBuilder result = new StringBuilder(length * 9); // '§' + '#' + 6 hex + char
+        final StringBuilder result = new StringBuilder(length * 9);
 
         final float inv = (length <= 1) ? 0f : 1f / (length - 1);
         for (int i = 0; i < length; i++) {

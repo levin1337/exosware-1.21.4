@@ -31,7 +31,7 @@ public class Globals extends Function {
     @Override
     public void onEnable() {
         super.onEnable();
-        clientAPI = new ClientAPI(Manager.URL_MANAGER.host, port);
+        clientAPI = new ClientAPI("1.4.3", port);
         isClientUserCache.clear();
 
         if (mc.player != null) {

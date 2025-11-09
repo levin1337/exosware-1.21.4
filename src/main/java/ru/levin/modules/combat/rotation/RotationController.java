@@ -54,10 +54,8 @@ public final class RotationController implements IMinecraft {
         resetStartTime = System.currentTimeMillis();
         resetDuration = durationMs;
 
-        //ОТ
         startYaw = rotate.x;
         startPitch = rotate.y;
-        //До моей
         targetYaw = mc.player.getYaw();
         targetPitch = mc.player.getPitch();
 
